@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "snowpack",
     "start": "serve app",
-    "build": "snowpack --optimize"
+    "build": "snowpack --optimize && workbox generateSW workbox-config.js"
   },
   "snowpack": {
     "webDependencies": [
@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "serve": "^11.3.0",
-    "snowpack": "^1.6.0"
+    "snowpack": "^1.6.0",
+    "workbox-cli": "^5.1.2"
   }
 }
