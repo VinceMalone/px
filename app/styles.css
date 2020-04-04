@@ -1,0 +1,102 @@
+body,
+html {
+  background: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"><path d="M1 2V0h1v1H0v1z" fill-opacity=".025"/></svg>');
+  background-size: 20px 20px;
+  contain: strict;
+  font: 16px/1.25 'Helvetica Neue', sans-serif;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: 0;
+}
+
+#image-canvas {
+  position: absolute;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+#zoom-canvas {
+  height: 100vh;
+  touch-action: none;
+  width: 100vw;
+}
+
+.sidebar {
+  background-color: white;
+  border: 1px solid black;
+  left: 0.25rem;
+  min-width: 250px;
+  position: absolute;
+  top: 0.25rem;
+}
+
+.sidebar-separator {
+  background-color: black;
+  border: none;
+  height: 1px;
+  margin: 0;
+}
+
+summary {
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  user-select: none;
+}
+
+.setting {
+  align-items: center;
+  display: grid;
+  gap: 0.5em;
+  grid-template-columns: auto 1fr;
+  padding: 0.25em 0.5em;
+}
+
+.colors,
+.settings {
+  padding: 0.5em 0;
+}
+
+.color {
+  align-items: center;
+  display: grid;
+  gap: 0.5em;
+  grid-template-columns: auto 1fr;
+  padding: 0.25em 0.5em;
+}
+
+.color-swatch {
+  border: 1px solid black;
+  display: inline-block;
+  height: 1em;
+  width: 1em;
+}
+
+file-drop {
+  touch-action: none;
+}
+
+file-drop:after {
+  background-color: rgba(255, 235, 59, 0.2);
+  border: 2px dashed #263238;
+  border-radius: 10px;
+  bottom: 10px;
+  content: '';
+  display: block;
+  left: 10px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  transform: scale(0.95);
+  transition: all 0.2s ease-in;
+  transition-property: transform, opacity;
+}
+
+file-drop.drop-valid:after {
+  opacity: 1;
+  transform: scale(1);
+  transition-timing-function: ease-out;
+}

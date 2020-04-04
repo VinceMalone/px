@@ -1,3 +1,5 @@
+import '/web_modules/file-drop-element.js';
+
 import { init } from './canvas.js';
 
 const canvas = document.querySelector('#image-canvas');
@@ -9,7 +11,7 @@ dropTarget.addEventListener('filedrop', evt => {
   go(URL.createObjectURL(file));
 });
 
-go('./charizard.png');
+go('./images/charizard.png');
 
 function go(src) {
   const image = new Image();

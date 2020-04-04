@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <link
+      href="/images/charizard.png"
+      rel="icon"
+      sizes="80x80"
+      type="image/png"
+    />
+    <link href="styles.css" rel="stylesheet" />
+    <title>px</title>
+  </head>
+  <body>
+    <canvas id="image-canvas"></canvas>
+    <file-drop accept="image/*" id="file-drop-target">
+      <canvas id="zoom-canvas"></canvas>
+      <aside class="sidebar">
+        <details>
+          <summary>Colors</summary>
+          <div class="colors" id="colors"></div>
+        </details>
+        <hr class="sidebar-separator" />
+        <details>
+          <summary>Settings</summary>
+          <div class="settings">
+            <div class="setting">
+              <input id="grid-size" min="2" type="range" value="32" />
+              <label for="grid-size">Grid Size</label>
+            </div>
+          </div>
+        </details>
+      </aside>
+    </file-drop>
+    <script src="main.js" type="module"></script>
+  </body>
+</html>

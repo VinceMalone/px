@@ -1,5 +1,25 @@
 {
   "name": "px",
   "private": true,
-  "author": "Vince Malone <vince.t.malone@gmail.com>"
+  "author": "Vince Malone <vince.t.malone@gmail.com>",
+  "scripts": {
+    "prepare": "snowpack",
+    "start": "serve app",
+    "build": "snowpack --optimize"
+  },
+  "snowpack": {
+    "webDependencies": [
+      "file-drop-element"
+    ],
+    "installOptions": {
+      "dest": "app/web_modules"
+    }
+  },
+  "dependencies": {
+    "file-drop-element": "^0.2.0"
+  },
+  "devDependencies": {
+    "serve": "^11.3.0",
+    "snowpack": "^1.6.0"
+  }
 }
