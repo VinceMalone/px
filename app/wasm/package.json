@@ -1,0 +1,12 @@
+{
+  "name": "image-quant",
+  "version": "0.1.0",
+  "files": [
+    "image_quant_bg.wasm",
+    "image_quant.js",
+    "image_quant.d.ts"
+  ],
+  "module": "image_quant.js",
+  "types": "image_quant.d.ts",
+  "sideEffects": false
+}

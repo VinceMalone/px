@@ -1,0 +1,15 @@
+[package]
+name = "image-quant"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+imagequant = { version = "4.0", default-features = false }
+rgb = "0.8.34"
+web-sys = { version = "0.3.61", features = ["console"] }
+wasm-bindgen = "0.2"

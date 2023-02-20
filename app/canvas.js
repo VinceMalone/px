@@ -1,7 +1,25 @@
 import { getColors } from './colors.js';
 import { createMatrix } from './matrix.js';
+import initQuantize, { quantize } from './wasm/image_quant.js';
+
+const quantizeLib = initQuantize();
 
 export const init = async (imageData) => {
+  await quantizeLib;
+
+  // TODO: make dynamic based on setting
+  const maxColors = 16;
+
+  const quantizedImageData = new Uint8ClampedArray(
+    quantize(imageData.data, imageData.width, imageData.height, maxColors, 1),
+  );
+
+  imageData = new ImageData(
+    quantizedImageData,
+    imageData.width,
+    imageData.height,
+  );
+
   const $gridSize = document.querySelector('#grid-size');
   $gridSize.max = Math.max(imageData.width, imageData.height);
 
