@@ -6,7 +6,7 @@ const canvas = document.querySelector('#image-canvas');
 const context = canvas.getContext('2d');
 
 const dropTarget = document.querySelector('#file-drop-target');
-dropTarget.addEventListener('filedrop', evt => {
+dropTarget.addEventListener('filedrop', (evt) => {
   const [file] = evt.files;
   go(URL.createObjectURL(file));
 });

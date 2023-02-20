@@ -1,6 +1,6 @@
 const pixelToRgba = (r, g, b, a) => `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 
-export const getColors = imageData => {
+export const getColors = (imageData) => {
   const { data } = imageData;
 
   const colorMap = new Map();

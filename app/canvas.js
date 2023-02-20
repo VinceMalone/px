@@ -1,7 +1,7 @@
 import { getColors } from './colors.js';
 import { createMatrix } from './matrix.js';
 
-export const init = async imageData => {
+export const init = async (imageData) => {
   const $gridSize = document.querySelector('#grid-size');
   $gridSize.max = Math.max(imageData.width, imageData.height);
 
@@ -43,9 +43,9 @@ export const init = async imageData => {
     draw();
   });
 
-  canvas.addEventListener('contextmenu', evt => evt.preventDefault());
+  canvas.addEventListener('contextmenu', (evt) => evt.preventDefault());
 
-  canvas.addEventListener('wheel', evt => {
+  canvas.addEventListener('wheel', (evt) => {
     evt.preventDefault();
 
     let { deltaY } = event;
@@ -90,7 +90,7 @@ export const init = async imageData => {
     draw();
   });
 
-  canvas.addEventListener('pointermove', evt => {
+  canvas.addEventListener('pointermove', (evt) => {
     if (!moving) {
       return;
     }
@@ -100,7 +100,7 @@ export const init = async imageData => {
     draw();
   });
 
-  $gridSize.addEventListener('input', evt => {
+  $gridSize.addEventListener('input', (evt) => {
     gridSize = evt.target.valueAsNumber;
     draw();
   });
