@@ -176,14 +176,15 @@ function drawImage(ctx, state, bitmap) {
 function drawLabels(ctx, state, colors) {
   const { scale, width, x, y } = state;
 
-  ctx.font = "16px 'Helvetica Neue', sans-serif";
+  ctx.font = "12px 'Helvetica Neue', sans-serif";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  for (const { id, index } of colors) {
+  for (const { brightness, id, index } of colors) {
     const col = index % width;
     const row = Math.floor(index / width);
 
+    ctx.fillStyle = brightness > 125 ? 'black' : 'white';
     ctx.fillText(
       id,
       x + (col * scale + scale / 2),
@@ -206,5 +207,6 @@ function renderColors(colorMap) {
     fragment.appendChild($color);
   }
 
+  $colors.innerHTML = '';
   $colors.appendChild(fragment);
 }

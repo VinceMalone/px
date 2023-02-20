@@ -26,8 +26,11 @@ html {
 .sidebar {
   background-color: white;
   border: 1px solid black;
+  box-sizing: border-box;
   left: 0.25rem;
+  max-height: calc(100% - 0.5rem);
   min-width: 250px;
+  overflow: auto;
   position: absolute;
   top: 0.25rem;
 }
