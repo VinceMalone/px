@@ -6,7 +6,7 @@
     "prepare": "snowpack",
     "start": "serve app",
     "build": "snowpack --optimize && workbox generateSW workbox-config.js",
-    "wasm": "wasm-pack build --target web --out-dir ../app/wasm image-quant/"
+    "build:wasm": "wasm-pack build --target web --out-dir ../app/wasm image-quant/"
   },
   "snowpack": {
     "webDependencies": [

@@ -1,7 +1,8 @@
 body,
 html {
   background: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"><path d="M1 2V0h1v1H0v1z" fill-opacity=".025"/></svg>');
-  background-size: 20px 20px;
+  background-position: var(--x, 0) var(--y, 0);
+  background-size: var(--zoom, 20px);
   contain: strict;
   font: 16px/1.25 'Helvetica Neue', sans-serif;
   height: 100%;
@@ -19,8 +20,11 @@ html {
 
 #zoom-canvas {
   height: 100vh;
+  height: 100dvh;
+  /* image-rendering: pixelated; */
   touch-action: none;
   width: 100vw;
+  width: 100dvw;
 }
 
 .sidebar {
@@ -48,17 +52,34 @@ summary {
   user-select: none;
 }
 
+.settings,
+.colors {
+  padding: 0.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .setting {
   align-items: center;
   display: grid;
-  gap: 0.5em;
-  grid-template-columns: auto 1fr;
-  padding: 0.25em 0.5em;
+  gap: 0.25em;
+  grid-template: auto auto / auto;
 }
 
-.colors,
-.settings {
-  padding: 0.5em 0;
+.setting-label {
+  align-items: center;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: auto 6ch;
+}
+
+.setting input[type='number']:invalid {
+  color: red;
+}
+
+.setting input[type='range'] {
+  margin: 0;
 }
 
 .color {
@@ -66,7 +87,6 @@ summary {
   display: grid;
   gap: 0.5em;
   grid-template-columns: auto 1fr;
-  padding: 0.25em 0.5em;
 }
 
 .color-swatch {
