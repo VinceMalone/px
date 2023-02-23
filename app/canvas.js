@@ -220,7 +220,6 @@ export class PxCanvas {
   };
 
   #onPointerUp = (event) => {
-    this.#initialMidPoint = null;
     this.#pointers.delete(event.pointerId);
     this.#moving = false; // this.#pointers.size > 0;
     if (this.#pointers.size < 2) {
@@ -228,8 +227,6 @@ export class PxCanvas {
     }
     this.#draw();
   };
-
-  #initialMidPoint; // TODO
 
   #onPointerMove = (event) => {
     this.#pointers.set(event.pointerId, event);
@@ -252,53 +249,14 @@ export class PxCanvas {
       // pinch-zoom
       case 2: {
         const [p1, p2] = this.#pointers.values();
-        if (this.#initialMidPoint == null) {
-          this.#initialMidPoint = [
-            (p1.clientX + p2.clientX) / 2,
-            (p1.clientY + p2.clientY) / 2,
-          ];
-        }
         const xDiff = Math.abs(p1.clientX - p2.clientX);
         const yDiff = Math.abs(p1.clientY - p2.clientY);
         const currentDiff = Math.max(xDiff, yDiff);
         if (this.#pointerDiff > 0) {
           const deltaZ = this.#pointerDiff - currentDiff;
           const scaleDiff = 1 - deltaZ / 300;
-
-          let x = event.clientX;
-          let y = event.clientY;
-          const xy = new URLSearchParams(location.search).get('xy');
-          switch (xy) {
-            case 'center':
-              x = (p1.clientX + p2.clientX) / 2;
-              y = (p1.clientY + p2.clientY) / 2;
-              break;
-            case 'initial':
-              [x, y] = this.#initialMidPoint;
-              break;
-            case 'first':
-              x = p1.clientX;
-              y = p1.clientY;
-              break;
-          }
-
-          // const x = (p1.clientX + p2.clientX) / 2;
-          // const y = (p1.clientY + p2.clientY) / 2;
-          // const x = p1.clientX;
-          // const y = p1.clientY;
-          // const x = event.clientX;
-          // const y = event.clientY;
-          // const [x, y] = this.#initialMidPoint;
-
-          document.querySelector('#debug').textContent =
-            JSON.stringify({
-              x1: p1.clientX,
-              x2: p2.clientX,
-              y1: p1.clientY,
-              y2: p2.clientY,
-              x,
-              y,
-            }) + '\n';
+          const x = (p1.clientX + p2.clientX) / 2;
+          const y = (p1.clientY + p2.clientY) / 2;
           this.#zoom({ scaleDiff, x, y });
         }
         this.#pointerDiff = currentDiff;
