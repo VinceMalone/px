@@ -397,20 +397,46 @@ export class PxCanvas {
     this.#context.stroke();
   }
 
+  *#labeledPixels() {
+    const getPixelX = (n) => Math.floor(Math.max(0, (n / this.#scale) * -1));
+
+    const getPixelY = (dir, n) =>
+      Math.ceil(
+        Math.min((this.#canvas[dir] - n) / this.#scale, this.#imageData[dir]),
+      );
+
+    // calculate the rectangle for visible pixels on the canvas
+    const top = getPixelX(this.#y);
+    const bottom = getPixelY('height', this.#y);
+    const right = getPixelY('width', this.#x);
+    const left = getPixelX(this.#x);
+
+    for (let x = left; x < right; x++) {
+      for (let y = top; y < bottom; y++) {
+        yield { x, y };
+      }
+    }
+  }
+
   #drawLabels() {
     this.#context.font = "12px 'Helvetica Neue', sans-serif";
     this.#context.textAlign = 'center';
     this.#context.textBaseline = 'middle';
 
-    for (const { brightness, id, index } of this.#colors) {
-      const col = index % this.#imageData.width;
-      const row = Math.floor(index / this.#imageData.width);
-
-      this.#context.fillStyle = brightness > 125 ? 'black' : 'white';
+    // drawing labels on every pixel can be expensive, only do it for the
+    // pixels that are rendered in the canvas.
+    for (const { x, y } of this.#labeledPixels()) {
+      const index = this.#imageData.width * y + x;
+      const color = this.#colors[index];
+      if (!color) {
+        console.warn(`color not found at index ${index} [${x}, ${y}]`);
+        continue;
+      }
+      this.#context.fillStyle = color.brightness > 125 ? 'black' : 'white';
       this.#context.fillText(
-        id,
-        this.#x + (col * this.#scale + this.#scale / 2),
-        this.#y + (row * this.#scale + this.#scale / 2),
+        color.id,
+        this.#x + (x * this.#scale + this.#scale / 2),
+        this.#y + (y * this.#scale + this.#scale / 2),
       );
     }
   }

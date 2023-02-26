@@ -29,7 +29,6 @@ export const getColors = (imageData) => {
       // https://www.w3.org/TR/AERT/#color-contrast
       brightness: Math.round((r * 299 + g * 587 + b * 114) / 1000),
       id,
-      index: i / 4,
     });
   }
 
