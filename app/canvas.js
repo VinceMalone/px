@@ -1,26 +1,6 @@
 import { getColors } from './colors.js';
 import { createMatrix } from './matrix.js';
-
-function debounce(callback, timeout) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    const shouldCallNow = !timer;
-    timer = setTimeout(() => {
-      timer = undefined;
-      if (!shouldCallNow) {
-        callback.apply(this, args);
-      }
-    }, timeout);
-    if (shouldCallNow) {
-      callback.apply(this, args);
-    }
-  };
-}
-
-function preventDefault(event) {
-  event.preventDefault();
-}
+import { throttle } from './utils.js';
 
 export class PxCanvas {
   #canvas;
@@ -141,6 +121,10 @@ export class PxCanvas {
   #onResize = () => {
     this.#setCanvasSize();
     this.#draw();
+  };
+
+  #onContextMenu = (event) => {
+    event.preventDefault();
   };
 
   #clampXY(dir, n) {
@@ -273,13 +257,13 @@ export class PxCanvas {
     this.#draw();
   };
 
-  #onMaxColorsChange = debounce((event) => {
+  #onMaxColorsChange = throttle((event) => {
     if (!event.target.validity.valid) return;
     this.#maxColors = event.target.valueAsNumber;
     this.#initImage();
   }, 250);
 
-  #onDitheringChange = debounce((event) => {
+  #onDitheringChange = throttle((event) => {
     if (!event.target.validity.valid) return;
     this.#dithering = event.target.valueAsNumber;
     this.#initImage();
@@ -287,7 +271,7 @@ export class PxCanvas {
 
   #addEventListeners() {
     window.addEventListener('resize', this.#onResize);
-    this.#canvas.addEventListener('contextmenu', preventDefault);
+    this.#canvas.addEventListener('contextmenu', this.#onContextMenu);
     this.#canvas.addEventListener('wheel', this.#onMouseWheel);
     this.#canvas.addEventListener('pointerdown', this.#onPointerDown);
     this.#canvas.addEventListener('pointerup', this.#onPointerUp);
@@ -302,7 +286,7 @@ export class PxCanvas {
 
   #removeEventListeners() {
     window.removeEventListener('resize', this.#onResize);
-    this.#canvas.removeEventListener('contextmenu', preventDefault);
+    this.#canvas.removeEventListener('contextmenu', this.#onContextMenu);
     this.#canvas.removeEventListener('wheel', this.#onMouseWheel);
     this.#canvas.removeEventListener('pointerdown', this.#onPointerDown);
     this.#canvas.removeEventListener('pointerup', this.#onPointerUp);
