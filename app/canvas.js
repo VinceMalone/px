@@ -3,6 +3,8 @@ import { createMatrix } from './matrix.js';
 import { throttle } from './utils.js';
 
 export class PxCanvas {
+  static MAX_SUPPORTED_COLORS = 32;
+
   #canvas;
   #context;
   #$colors;
@@ -19,6 +21,7 @@ export class PxCanvas {
   #maxColors;
   #gridSize;
   #colors;
+  #colorMap;
   #bitmap;
   #moving = false;
   #pointers = new Map();
@@ -38,10 +41,7 @@ export class PxCanvas {
     this.#$maxColors = document.querySelector('#max-colors');
     this.#$dithering = document.querySelector('#dithering');
 
-    this.#gridSize = this.#$gridSize.valueAsNumber;
-    this.#maxColors = this.#$maxColors.valueAsNumber;
-    this.#dithering = this.#$dithering.valueAsNumber;
-
+    this.#setSettingValues();
     this.#addEventListeners();
     this.#setCanvasSize();
   }
@@ -62,7 +62,19 @@ export class PxCanvas {
     const maxGridSize = Math.max(width, height);
     this.#$gridSize.max = maxGridSize;
 
+    // reset this before `initImage` is called
+    this.#maxColors = PxCanvas.MAX_SUPPORTED_COLORS;
+
     await this.#initImage();
+
+    const maxColors = Math.min(
+      this.#colorMap.size,
+      PxCanvas.MAX_SUPPORTED_COLORS,
+    );
+    this.#$maxColors.max = maxColors;
+    this.#$maxColors.value = maxColors;
+
+    this.#setSettingValues();
   }
 
   async #initImage() {
@@ -98,9 +110,8 @@ export class PxCanvas {
       { colorSpace: this.#initialImageData.colorSpace },
     );
 
-    const [_colors, colorMap] = getColors(this.#imageData);
-    this.#colors = _colors;
-    this.#renderColors(colorMap);
+    [this.#colors, this.#colorMap] = getColors(this.#imageData);
+    this.#renderColors();
 
     this.#bitmap = await createImageBitmap(
       this.#imageData,
@@ -111,6 +122,12 @@ export class PxCanvas {
     );
 
     this.#draw();
+  }
+
+  #setSettingValues() {
+    this.#gridSize = this.#$gridSize.valueAsNumber;
+    this.#maxColors = this.#$maxColors.valueAsNumber;
+    this.#dithering = this.#$dithering.valueAsNumber;
   }
 
   #setCanvasSize() {
@@ -425,10 +442,10 @@ export class PxCanvas {
     }
   }
 
-  #renderColors(colorMap) {
+  #renderColors() {
     const fragment = new DocumentFragment();
 
-    for (const [color, { id }] of colorMap) {
+    for (const [color, { id }] of this.#colorMap) {
       const $color = document.createElement('div');
       $color.classList.add('color');
       $color.innerHTML = `

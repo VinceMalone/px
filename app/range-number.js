@@ -60,6 +60,7 @@ class RangeNumber extends HTMLInputElement {
     });
 
     this.#twin.addEventListener('input', this.#onTwinInput);
+    this.#twin.addEventListener('valuechange', this.#onValueChange);
   }
 
   #unsubscribeFromTwin() {
@@ -69,6 +70,10 @@ class RangeNumber extends HTMLInputElement {
 
   #onTwinInput = (event) => {
     this.value = event.target.value;
+  };
+
+  #onValueChange = (event) => {
+    this.value = event.detail.value;
   };
 
   #onInput = (event) => {
@@ -97,6 +102,25 @@ class RangeNumber extends HTMLInputElement {
   }
 }
 
+class RangeNumberTarget extends HTMLInputElement {
+  get value() {
+    return super.value;
+  }
+
+  set value(value) {
+    super.value = value;
+    const event = new CustomEvent('valuechange', {
+      bubbles: false,
+      detail: { value },
+    });
+    this.dispatchEvent(event);
+  }
+}
+
 window.customElements.define('range-number', RangeNumber, {
+  extends: 'input',
+});
+
+window.customElements.define('range-number-target', RangeNumberTarget, {
   extends: 'input',
 });

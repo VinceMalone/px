@@ -87,6 +87,11 @@ summary {
   margin: 0;
 }
 
+.help-text {
+  font-size: 0.75rem;
+  margin-block: 0;
+}
+
 .color {
   align-items: center;
   display: grid;

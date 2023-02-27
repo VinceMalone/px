@@ -9,7 +9,9 @@ export const getColors = (imageData) => {
   const results = [];
 
   for (let i = 0; i < data.length; i += 4) {
-    const [r, g, b, a] = data.slice(i, i + 4);
+    let [r, g, b, a] = data.slice(i, i + 4);
+    if (a === 0) r = b = g = 0;
+
     const color = pixelToRgba(r, g, b, a);
 
     let id;
