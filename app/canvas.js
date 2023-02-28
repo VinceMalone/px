@@ -218,10 +218,12 @@ export class PxCanvas {
     this.#lastScreenY = event.screenY;
     this.#moving = true;
     this.#pointers.set(event.pointerId, event);
+    this.#canvas.setPointerCapture(event.pointerId);
   };
 
   #onPointerUp = (event) => {
     this.#pointers.delete(event.pointerId);
+    this.#canvas.releasePointerCapture(event.pointerId);
     this.#moving = false; // this.#pointers.size > 0;
     if (this.#pointers.size < 2) {
       this.#pointerDiff = -1;
