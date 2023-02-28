@@ -5,9 +5,7 @@ import { PxCanvas } from './canvas.js';
 const canvas = document.querySelector('#image-canvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 
-const pxCanvas = new PxCanvas({
-  canvas: document.querySelector('#zoom-canvas'),
-});
+const pxCanvas = new PxCanvas(document.querySelector('#zoom-canvas'));
 
 const dropTarget = document.querySelector('#file-drop-target');
 dropTarget.addEventListener('filedrop', (evt) => {

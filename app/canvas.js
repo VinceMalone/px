@@ -1,39 +1,36 @@
-import { getColors } from './colors.js';
-import { createMatrix } from './matrix.js';
 import { throttle } from './utils.js';
 
 export class PxCanvas {
-  static MAX_SUPPORTED_COLORS = 32;
-
   #canvas;
-  #context;
+  #offscreenCanvas;
+  #offscreenWorker;
+
   #$colors;
-  #$dithering;
+  #$zoom;
   #$gridSize;
   #$maxColors;
-  #$zoom;
-  #scale;
-  #x;
-  #y;
-  #initialImageData;
-  #imageData;
-  #dithering;
-  #maxColors;
-  #gridSize;
-  #colors;
-  #colorMap;
-  #bitmap;
+  #$dithering;
+
   #moving = false;
   #pointers = new Map();
   #pointerDiff = -1;
   #lastScreenX = 0;
   #lastScreenY = 0;
-  #latestQuantizeTaskId = 0;
-  #lastFinishedQuantizeTaskId = 0;
 
-  constructor({ canvas }) {
+  /** @param {HTMLCanvasElement} canvas */
+  constructor(canvas) {
     this.#canvas = canvas;
-    this.#context = canvas.getContext('2d');
+    this.#canvas.width = this.#canvas.clientWidth; // window.innerWidth;
+    this.#canvas.height = this.#canvas.clientHeight; // window.innerHeight;
+
+    this.#offscreenCanvas = canvas.transferControlToOffscreen();
+    this.#offscreenWorker = new Worker('./offscreen.js');
+    this.#offscreenWorker.postMessage(
+      {
+        canvas: this.#offscreenCanvas,
+      },
+      [this.#offscreenCanvas],
+    );
 
     this.#$colors = document.querySelector('#colors');
     this.#$zoom = document.querySelector('#zoom');
@@ -41,138 +38,36 @@ export class PxCanvas {
     this.#$maxColors = document.querySelector('#max-colors');
     this.#$dithering = document.querySelector('#dithering');
 
-    this.#setSettingValues();
     this.#addEventListeners();
-    this.#setCanvasSize();
   }
 
   destroy() {
     this.#removeEventListeners();
   }
 
-  async setImage(imageData) {
-    this.#initialImageData = imageData;
-
-    const { height, width } = this.#initialImageData;
-
-    this.#scale = 1;
-    this.#x = this.#canvas.width / 2 - (width * this.#scale) / 2;
-    this.#y = this.#canvas.height / 2 - (height * this.#scale) / 2;
-
-    const maxGridSize = Math.max(width, height);
-    this.#$gridSize.max = maxGridSize;
-
-    // reset this before `initImage` is called
-    this.#maxColors = PxCanvas.MAX_SUPPORTED_COLORS;
-
-    await this.#initImage();
-
-    const maxColors = Math.min(
-      this.#colorMap.size,
-      PxCanvas.MAX_SUPPORTED_COLORS,
-    );
-    this.#$maxColors.max = maxColors;
-    this.#$maxColors.value = maxColors;
-
-    this.#setSettingValues();
-  }
-
-  async #initImage() {
-    const quantizeWorker = new Worker('./quantize.js', { type: 'module' });
-    const taskId = ++this.#latestQuantizeTaskId;
-
-    quantizeWorker.postMessage({
-      data: this.#initialImageData.data,
-      width: this.#initialImageData.width,
-      height: this.#initialImageData.height,
-      maxColors: this.#maxColors,
-      dithering: this.#dithering,
+  /**
+   * @param {ImageData} imageData
+   */
+  setImage(imageData) {
+    this.#offscreenWorker.postMessage({
+      type: 'image',
+      payload: imageData,
     });
-
-    const quantizedImageData = await new Promise((resolve) => {
-      quantizeWorker.onmessage = (message) => {
-        resolve(message.data);
-      };
-    });
-
-    quantizeWorker.terminate();
-
-    if (taskId < this.#lastFinishedQuantizeTaskId) {
-      return;
-    }
-
-    this.#lastFinishedQuantizeTaskId = taskId;
-
-    this.#imageData = new ImageData(
-      quantizedImageData,
-      this.#initialImageData.width,
-      this.#initialImageData.height,
-      { colorSpace: this.#initialImageData.colorSpace },
-    );
-
-    [this.#colors, this.#colorMap] = getColors(this.#imageData);
-    this.#renderColors();
-
-    this.#bitmap = await createImageBitmap(
-      this.#imageData,
-      0,
-      0,
-      this.#imageData.width,
-      this.#imageData.height,
-    );
-
-    this.#draw();
-  }
-
-  #setSettingValues() {
-    this.#gridSize = this.#$gridSize.valueAsNumber;
-    this.#maxColors = this.#$maxColors.valueAsNumber;
-    this.#dithering = this.#$dithering.valueAsNumber;
-  }
-
-  #setCanvasSize() {
-    this.#canvas.width = window.innerWidth;
-    this.#canvas.height = window.innerHeight;
   }
 
   #onResize = () => {
-    this.#setCanvasSize();
-    this.#draw();
+    this.#offscreenWorker.postMessage({
+      type: 'resize',
+      payload: {
+        height: this.#canvas.clientHeight,
+        width: this.#canvas.clientWidth,
+      },
+    });
   };
 
   #onContextMenu = (event) => {
     event.preventDefault();
   };
-
-  #clampXY(dir, n) {
-    return Math.max(
-      0 - this.#imageData[dir] * this.#scale,
-      Math.min(this.#canvas[dir], n),
-    );
-  }
-
-  #zoom({ scaleDiff, x, y }) {
-    const originX = x - this.#x;
-    const originY = y - this.#y;
-
-    const matrix = createMatrix()
-      // Scale about the origin
-      .translate(originX, originY)
-      // Apply current translate
-      .translate(this.#x, this.#y)
-      .scale(scaleDiff)
-      .translate(-originX, -originY)
-      // Apply current scale
-      .scale(this.#scale);
-
-    this.#scale = matrix.a;
-    this.#x = matrix.e;
-    this.#y = matrix.f;
-
-    this.#scale = Math.max(0.1, this.#scale);
-
-    this.#draw();
-  }
 
   #onMouseWheel = (event) => {
     event.preventDefault();
@@ -180,17 +75,16 @@ export class PxCanvas {
     if (event.metaKey) {
       // holding the meta key should translate the image
       // also holding shift should scroll the image in a dominant x/y axis
-      const axes = event.shiftKey
+      const { deltaX, deltaY } = event;
+      const [movementX, movementY] = event.shiftKey
         ? Math.abs(event.deltaX) > Math.abs(event.deltaY)
-          ? ['x']
-          : ['y']
-        : ['x', 'y'];
-      if (axes.includes('x')) {
-        this.#x = this.#clampXY('width', this.#x + event.deltaX);
-      }
-      if (axes.includes('y')) {
-        this.#y = this.#clampXY('height', this.#y + event.deltaY);
-      }
+          ? [deltaX, 0]
+          : [0, deltaY]
+        : [deltaX, deltaY];
+      this.#offscreenWorker.postMessage({
+        type: 'pan',
+        payload: { movementX, movementY },
+      });
     } else {
       let deltaZ =
         Math.abs(event.deltaX) > Math.abs(event.deltaY)
@@ -207,18 +101,19 @@ export class PxCanvas {
       const divisor = event.ctrlKey ? 100 : 300;
       const scaleDiff = 1 - deltaZ / divisor;
 
-      this.#zoom({ scaleDiff, x: event.clientX, y: event.clientY });
+      this.#offscreenWorker.postMessage({
+        type: 'zoom',
+        payload: { scaleDiff, x: event.clientX, y: event.clientY },
+      });
     }
-
-    this.#draw();
   };
 
   #onPointerDown = (event) => {
     this.#lastScreenX = event.screenX;
     this.#lastScreenY = event.screenY;
-    this.#moving = true;
     this.#pointers.set(event.pointerId, event);
     this.#canvas.setPointerCapture(event.pointerId);
+    this.#moving = true;
   };
 
   #onPointerUp = (event) => {
@@ -228,7 +123,6 @@ export class PxCanvas {
     if (this.#pointers.size < 2) {
       this.#pointerDiff = -1;
     }
-    this.#draw();
   };
 
   #onPointerMove = (event) => {
@@ -243,10 +137,12 @@ export class PxCanvas {
         // movementX/movementY may not be available on iOS
         const movementX = event.movementX ?? event.screenX - this.#lastScreenX;
         const movementY = event.movementY ?? event.screenY - this.#lastScreenY;
+        this.#offscreenWorker.postMessage({
+          type: 'pan',
+          payload: { movementX, movementY },
+        });
         this.#lastScreenX = event.screenX;
         this.#lastScreenY = event.screenY;
-        this.#x = this.#clampXY('width', this.#x + movementX);
-        this.#y = this.#clampXY('height', this.#y + movementY);
         break;
       }
       // pinch-zoom
@@ -260,33 +156,61 @@ export class PxCanvas {
           const scaleDiff = 1 - deltaZ / 300;
           const x = (p1.clientX + p2.clientX) / 2;
           const y = (p1.clientY + p2.clientY) / 2;
-          this.#zoom({ scaleDiff, x, y });
+          this.#offscreenWorker.postMessage({
+            type: 'zoom',
+            payload: { scaleDiff, x, y },
+          });
         }
         this.#pointerDiff = currentDiff;
         break;
       }
     }
-
-    this.#draw();
   };
 
   #onGridSizeChange = (event) => {
     if (!event.target.validity.valid) return;
-    this.#gridSize = event.target.valueAsNumber;
-    this.#draw();
+    const gridSize = event.target.valueAsNumber;
+    this.#offscreenWorker.postMessage({
+      type: 'gridSize',
+      payload: gridSize,
+    });
   };
 
   #onMaxColorsChange = throttle((event) => {
     if (!event.target.validity.valid) return;
-    this.#maxColors = event.target.valueAsNumber;
-    this.#initImage();
+    const maxColors = event.target.valueAsNumber;
+    this.#offscreenWorker.postMessage({
+      type: 'maxColors',
+      payload: maxColors,
+    });
   }, 250);
 
   #onDitheringChange = throttle((event) => {
     if (!event.target.validity.valid) return;
-    this.#dithering = event.target.valueAsNumber;
-    this.#initImage();
+    const dithering = event.target.valueAsNumber;
+    this.#offscreenWorker.postMessage({
+      type: 'dithering',
+      payload: dithering,
+    });
   }, 250);
+
+  #onOffscreenMessage = (event) => {
+    switch (event.data.type) {
+      case 'colors':
+        this.#renderColors(event.data.payload);
+        break;
+      case 'zoom':
+        this.#renderZoom(event.data.payload);
+        break;
+      case 'maxGridSize':
+        this.#$gridSize.max = event.data.payload;
+        break;
+      case 'maxColors':
+        this.#$maxColors.max = event.data.payload;
+        this.#$maxColors.value = event.data.payload;
+        break;
+    }
+  };
 
   #addEventListeners() {
     window.addEventListener('resize', this.#onResize);
@@ -301,6 +225,7 @@ export class PxCanvas {
     this.#$gridSize.addEventListener('input', this.#onGridSizeChange);
     this.#$maxColors.addEventListener('input', this.#onMaxColorsChange);
     this.#$dithering.addEventListener('input', this.#onDitheringChange);
+    this.#offscreenWorker.addEventListener('message', this.#onOffscreenMessage);
   }
 
   #removeEventListeners() {
@@ -316,138 +241,14 @@ export class PxCanvas {
     this.#$gridSize.removeEventListener('input', this.#onGridSizeChange);
     this.#$maxColors.removeEventListener('input', this.#onMaxColorsChange);
     this.#$dithering.removeEventListener('input', this.#onDitheringChange);
+    this.#offscreenWorker.terminate();
   }
 
-  #draw() {
-    this.#context.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
-
-    // document.documentElement.style.setProperty('--zoom', `${this.#scale * 2}px`);
-    // document.documentElement.style.setProperty('--x', `${this.#x}px`);
-    // document.documentElement.style.setProperty('--y', `${this.#y}px`);
-
-    this.#drawStats();
-    this.#drawImage();
-
-    if (!this.#moving && this.#scale >= 16) {
-      this.#drawLabels();
-    }
-
-    if (this.#scale > 5) {
-      this.#drawGrid({ color: 'white', gap: 1 });
-    }
-
-    this.#drawGrid({ color: 'grey', gap: this.#gridSize });
-    this.#drawBorder({ color: 'black' });
-  }
-
-  #drawStats() {
-    this.#$zoom.value = Math.round(this.#scale * 100);
-  }
-
-  #drawImage() {
-    this.#context.imageSmoothingEnabled = false;
-    this.#context.drawImage(
-      this.#bitmap,
-      this.#x,
-      this.#y,
-      this.#imageData.width * this.#scale,
-      this.#imageData.height * this.#scale,
-    );
-  }
-
-  #drawBorder({ color, lineWidth = 1 }) {
-    this.#context.strokeStyle = color;
-    this.#context.lineWidth = lineWidth;
-    this.#context.strokeRect(
-      this.#x,
-      this.#y,
-      this.#imageData.width * this.#scale,
-      this.#imageData.height * this.#scale,
-    );
-  }
-
-  #drawGrid({ color, gap, lineWidth = 1 }) {
-    if (gap === 0) return;
-
-    const bottom = this.#imageData.height * this.#scale + this.#y;
-    const right = this.#imageData.width * this.#scale + this.#x;
-    const factor = gap * this.#scale;
-
-    this.#context.strokeStyle = color;
-    this.#context.lineWidth = lineWidth;
-    this.#context.beginPath();
-
-    for (
-      let i = 0, count = Math.ceil(this.#imageData.width / gap);
-      i < count;
-      i++
-    ) {
-      const x = i * factor + this.#x;
-      this.#context.moveTo(x, this.#y);
-      this.#context.lineTo(x, bottom);
-    }
-
-    for (
-      let i = 0, count = Math.ceil(this.#imageData.height / gap);
-      i < count;
-      i++
-    ) {
-      const y = i * factor + this.#y;
-      this.#context.moveTo(this.#x, y);
-      this.#context.lineTo(right, y);
-    }
-
-    this.#context.stroke();
-  }
-
-  *#labeledPixels() {
-    const getPixelX = (n) => Math.floor(Math.max(0, (n / this.#scale) * -1));
-
-    const getPixelY = (dir, n) =>
-      Math.ceil(
-        Math.min((this.#canvas[dir] - n) / this.#scale, this.#imageData[dir]),
-      );
-
-    // calculate the rectangle for visible pixels on the canvas
-    const top = getPixelX(this.#y);
-    const bottom = getPixelY('height', this.#y);
-    const right = getPixelY('width', this.#x);
-    const left = getPixelX(this.#x);
-
-    for (let x = left; x < right; x++) {
-      for (let y = top; y < bottom; y++) {
-        yield { x, y };
-      }
-    }
-  }
-
-  #drawLabels() {
-    this.#context.font = "12px 'Helvetica Neue', sans-serif";
-    this.#context.textAlign = 'center';
-    this.#context.textBaseline = 'middle';
-
-    // drawing labels on every pixel can be expensive, only do it for the
-    // pixels that are rendered in the canvas.
-    for (const { x, y } of this.#labeledPixels()) {
-      const index = this.#imageData.width * y + x;
-      const color = this.#colors[index];
-      if (!color) {
-        console.warn(`color not found at index ${index} [${x}, ${y}]`);
-        continue;
-      }
-      this.#context.fillStyle = color.brightness > 125 ? 'black' : 'white';
-      this.#context.fillText(
-        color.id,
-        this.#x + (x * this.#scale + this.#scale / 2),
-        this.#y + (y * this.#scale + this.#scale / 2),
-      );
-    }
-  }
-
-  #renderColors() {
+  /** @param {Map<string, number>} colorMap */
+  #renderColors(colorMap) {
     const fragment = new DocumentFragment();
 
-    for (const [color, { id }] of this.#colorMap) {
+    for (const [color, id] of colorMap) {
       const $color = document.createElement('div');
       $color.classList.add('color');
       $color.innerHTML = `
@@ -460,4 +261,16 @@ export class PxCanvas {
     this.#$colors.innerHTML = '';
     this.#$colors.appendChild(fragment);
   }
+
+  /** @param {number} value */
+  #renderZoom(value) {
+    this.#$zoom.value = Math.round(value * 100);
+  }
+
+  // #renderBG(x, y, z) {
+  //   const doc = document.documentElement;
+  //   doc.style.setProperty('--zoom', `${z * 2}px`);
+  //   doc.style.setProperty('--x', `${x}px`);
+  //   doc.style.setProperty('--y', `${y}px`);
+  // }
 }
