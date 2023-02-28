@@ -89,6 +89,12 @@
         </details>
       </aside>
     </file-drop>
+    <script>
+      if (!('OffscreenCanvas' in window)) {
+        document.documentElement.innerHTML =
+          '<p>🚫 This browser version does not support <a href="https://caniuse.com/offscreencanvas">OffscreenCanvas</a>, which is required to use this app.</p>';
+      }
+    </script>
     <script src="range-number.js" type="module"></script>
     <script src="main.js" type="module"></script>
     <script>
