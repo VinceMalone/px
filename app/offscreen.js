@@ -86,7 +86,9 @@ class PxCanvas {
   }
 
   async #initImage() {
-    const quantizeWorker = new Worker('./quantize.js', { type: 'module' });
+    // use module workers once supported by firefox
+    // https://caniuse.com/mdn-api_worker_worker_ecmascript_modules
+    const quantizeWorker = new Worker('./quantize.js');
     const taskId = ++this.#latestQuantizeTaskId;
 
     quantizeWorker.postMessage({

@@ -1,11 +1,9 @@
-import init, { quantize } from './wasm/image_quant.js';
+importScripts('./wasm/image_quant.js');
 
-let wasmModule;
+const { quantize } = wasm_bindgen;
 
 onmessage = async function handleColorQuantization(event) {
-  if (!wasmModule) wasmModule = init();
-  await wasmModule;
-
+  await wasm_bindgen('./wasm/image_quant_bg.wasm');
   const { data, width, height, maxColors, dithering } = event.data;
   const quantizedImageData = quantize(
     data,
