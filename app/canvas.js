@@ -1,9 +1,9 @@
+import { Controller } from './controller.js';
 import { throttle } from './utils.js';
 
 export class PxCanvas {
   #canvas;
-  #offscreenCanvas;
-  #offscreenWorker;
+  #controller;
 
   #$colors;
   #$zoom;
@@ -20,17 +20,10 @@ export class PxCanvas {
   /** @param {HTMLCanvasElement} canvas */
   constructor(canvas) {
     this.#canvas = canvas;
-    this.#canvas.width = this.#canvas.clientWidth; // window.innerWidth;
-    this.#canvas.height = this.#canvas.clientHeight; // window.innerHeight;
+    this.#canvas.width = this.#canvas.clientWidth;
+    this.#canvas.height = this.#canvas.clientHeight;
 
-    this.#offscreenCanvas = canvas.transferControlToOffscreen();
-    this.#offscreenWorker = new Worker('./offscreen.js');
-    this.#offscreenWorker.postMessage(
-      {
-        canvas: this.#offscreenCanvas,
-      },
-      [this.#offscreenCanvas],
-    );
+    this.#controller = new Controller(this.#canvas);
 
     this.#$colors = document.querySelector('#colors');
     this.#$zoom = document.querySelector('#zoom');
@@ -49,19 +42,13 @@ export class PxCanvas {
    * @param {ImageData} imageData
    */
   setImage(imageData) {
-    this.#offscreenWorker.postMessage({
-      type: 'image',
-      payload: imageData,
-    });
+    this.#controller.setImage(imageData);
   }
 
   #onResize = () => {
-    this.#offscreenWorker.postMessage({
-      type: 'resize',
-      payload: {
-        height: this.#canvas.clientHeight,
-        width: this.#canvas.clientWidth,
-      },
+    this.#controller.resize({
+      height: this.#canvas.clientHeight,
+      width: this.#canvas.clientWidth,
     });
   };
 
@@ -81,10 +68,7 @@ export class PxCanvas {
           ? [deltaX, 0]
           : [0, deltaY]
         : [deltaX, deltaY];
-      this.#offscreenWorker.postMessage({
-        type: 'pan',
-        payload: { movementX, movementY },
-      });
+      this.#controller.pan({ movementX, movementY });
     } else {
       let deltaZ =
         Math.abs(event.deltaX) > Math.abs(event.deltaY)
@@ -101,9 +85,10 @@ export class PxCanvas {
       const divisor = event.ctrlKey ? 100 : 300;
       const scaleDiff = 1 - deltaZ / divisor;
 
-      this.#offscreenWorker.postMessage({
-        type: 'zoom',
-        payload: { scaleDiff, x: event.clientX, y: event.clientY },
+      this.#controller.zoom({
+        scaleDiff,
+        x: event.clientX,
+        y: event.clientY,
       });
     }
   };
@@ -137,10 +122,7 @@ export class PxCanvas {
         // movementX/movementY may not be available on iOS
         const movementX = event.movementX ?? event.screenX - this.#lastScreenX;
         const movementY = event.movementY ?? event.screenY - this.#lastScreenY;
-        this.#offscreenWorker.postMessage({
-          type: 'pan',
-          payload: { movementX, movementY },
-        });
+        this.#controller.pan({ movementX, movementY });
         this.#lastScreenX = event.screenX;
         this.#lastScreenY = event.screenY;
         break;
@@ -156,10 +138,7 @@ export class PxCanvas {
           const scaleDiff = 1 - deltaZ / 300;
           const x = (p1.clientX + p2.clientX) / 2;
           const y = (p1.clientY + p2.clientY) / 2;
-          this.#offscreenWorker.postMessage({
-            type: 'zoom',
-            payload: { scaleDiff, x, y },
-          });
+          this.#controller.zoom({ scaleDiff, x, y });
         }
         this.#pointerDiff = currentDiff;
         break;
@@ -170,46 +149,36 @@ export class PxCanvas {
   #onGridSizeChange = (event) => {
     if (!event.target.validity.valid) return;
     const gridSize = event.target.valueAsNumber;
-    this.#offscreenWorker.postMessage({
-      type: 'gridSize',
-      payload: gridSize,
-    });
+    this.#controller.setGridSize(gridSize);
   };
 
   #onMaxColorsChange = throttle((event) => {
     if (!event.target.validity.valid) return;
     const maxColors = event.target.valueAsNumber;
-    this.#offscreenWorker.postMessage({
-      type: 'maxColors',
-      payload: maxColors,
-    });
+    this.#controller.setMaxColors(maxColors);
   }, 250);
 
   #onDitheringChange = throttle((event) => {
     if (!event.target.validity.valid) return;
     const dithering = event.target.valueAsNumber;
-    this.#offscreenWorker.postMessage({
-      type: 'dithering',
-      payload: dithering,
-    });
+    this.#controller.setDithering(dithering);
   }, 250);
 
-  #onOffscreenMessage = (event) => {
-    switch (event.data.type) {
-      case 'colors':
-        this.#renderColors(event.data.payload);
-        break;
-      case 'zoom':
-        this.#renderZoom(event.data.payload);
-        break;
-      case 'maxGridSize':
-        this.#$gridSize.max = event.data.payload;
-        break;
-      case 'maxColors':
-        this.#$maxColors.max = event.data.payload;
-        this.#$maxColors.value = event.data.payload;
-        break;
-    }
+  #onColors = (event) => {
+    this.#renderColors(event.detail);
+  };
+
+  #onMaxColors = (event) => {
+    this.#$maxColors.max = event.detail;
+    this.#$maxColors.value = event.detail;
+  };
+
+  #onMaxGridSize = (event) => {
+    this.#$gridSize.max = event.detail;
+  };
+
+  #onZoom = (event) => {
+    this.#renderZoom(event.detail);
   };
 
   #addEventListeners() {
@@ -225,7 +194,10 @@ export class PxCanvas {
     this.#$gridSize.addEventListener('input', this.#onGridSizeChange);
     this.#$maxColors.addEventListener('input', this.#onMaxColorsChange);
     this.#$dithering.addEventListener('input', this.#onDitheringChange);
-    this.#offscreenWorker.addEventListener('message', this.#onOffscreenMessage);
+    this.#controller.addEventListener('colors', this.#onColors);
+    this.#controller.addEventListener('maxColors', this.#onMaxColors);
+    this.#controller.addEventListener('maxGridSize', this.#onMaxGridSize);
+    this.#controller.addEventListener('zoom', this.#onZoom);
   }
 
   #removeEventListeners() {
@@ -241,7 +213,11 @@ export class PxCanvas {
     this.#$gridSize.removeEventListener('input', this.#onGridSizeChange);
     this.#$maxColors.removeEventListener('input', this.#onMaxColorsChange);
     this.#$dithering.removeEventListener('input', this.#onDitheringChange);
-    this.#offscreenWorker.terminate();
+    this.#controller.removeEventListener('colors', this.#onColors);
+    this.#controller.removeEventListener('maxColors', this.#onMaxColors);
+    this.#controller.removeEventListener('maxGridSize', this.#onMaxGridSize);
+    this.#controller.removeEventListener('zoom', this.#onZoom);
+    this.#controller.destroy();
   }
 
   /** @param {Map<string, number>} colorMap */
