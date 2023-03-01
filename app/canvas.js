@@ -116,7 +116,7 @@ export class PxCanvas {
     switch (this.#pointers.size) {
       // drag/pan (mouse/touch)
       case 1: {
-        if (!this.#moving) {
+        if (!this.#moving || this.#zooming) {
           return;
         }
         // movementX/movementY may not be available on iOS
@@ -144,6 +144,53 @@ export class PxCanvas {
         break;
       }
     }
+  };
+
+  #doubleTapTimer;
+  #zooming = false;
+  #zoomingAnchor = [0, 0];
+  #zoomingLastY = 0;
+  #touchDistance = 0;
+
+  #onTouchStart = (event) => {
+    // prevent highlighting on iOS
+    event.preventDefault();
+
+    switch (event.touches.length) {
+      case 1:
+        const [touch] = event.touches;
+        const lastDistance = this.#touchDistance;
+        this.#touchDistance = touch.clientX + touch.clientY;
+        const isDoubleTap = this.#doubleTapTimer != null && lastDistance < 8;
+        if (isDoubleTap) {
+          this.#zoomingAnchor = [touch.clientX, touch.clientY];
+          this.#zoomingLastY = touch.clientY;
+          this.#zooming = true;
+        }
+        clearTimeout(this.#doubleTapTimer);
+        this.#doubleTapTimer = setTimeout(() => {
+          this.#doubleTapTimer = undefined;
+        }, 400);
+        break;
+    }
+  };
+
+  #onTouchMove = (event) => {
+    if (this.#zooming) {
+      const [touch] = event.touches;
+      const deltaZ = this.#zoomingLastY - touch.clientY;
+      const scaleDiff = 1 - deltaZ / 100;
+      const [x, y] = this.#zoomingAnchor;
+      this.#controller.zoom({ scaleDiff, x, y });
+      this.#zoomingLastY = touch.clientY;
+    }
+  };
+
+  #onTouchEnd = (event) => {
+    this.#zooming = false;
+    const [touch] = event.changedTouches;
+    const xy = touch.clientX + touch.clientY;
+    this.#touchDistance = Math.abs(xy - this.#touchDistance);
   };
 
   #onGridSizeChange = (event) => {
@@ -191,6 +238,10 @@ export class PxCanvas {
     this.#canvas.addEventListener('pointerout', this.#onPointerUp);
     this.#canvas.addEventListener('pointerleave', this.#onPointerUp);
     this.#canvas.addEventListener('pointermove', this.#onPointerMove);
+    this.#canvas.addEventListener('touchstart', this.#onTouchStart);
+    this.#canvas.addEventListener('touchmove', this.#onTouchMove);
+    this.#canvas.addEventListener('touchend', this.#onTouchEnd);
+    this.#canvas.addEventListener('touchcancel', this.#onTouchEnd);
     this.#$gridSize.addEventListener('input', this.#onGridSizeChange);
     this.#$maxColors.addEventListener('input', this.#onMaxColorsChange);
     this.#$dithering.addEventListener('input', this.#onDitheringChange);
@@ -210,6 +261,10 @@ export class PxCanvas {
     this.#canvas.removeEventListener('pointerout', this.#onPointerUp);
     this.#canvas.removeEventListener('pointerleave', this.#onPointerUp);
     this.#canvas.removeEventListener('pointermove', this.#onPointerMove);
+    this.#canvas.removeEventListener('touchstart', this.#onTouchStart);
+    this.#canvas.removeEventListener('touchmove', this.#onTouchMove);
+    this.#canvas.removeEventListener('touchend', this.#onTouchEnd);
+    this.#canvas.removeEventListener('touchcancel', this.#onTouchEnd);
     this.#$gridSize.removeEventListener('input', this.#onGridSizeChange);
     this.#$maxColors.removeEventListener('input', this.#onMaxColorsChange);
     this.#$dithering.removeEventListener('input', this.#onDitheringChange);
